@@ -92,32 +92,31 @@
 - Healthians
 - Orange Health
 
-- #### Redcliff
+#### Redcliff
 - HOST: `https://redcliffhealth.com`
 
 - Error Response:
 
-  ````json
+  ```json
     {
         "status": "failure",
         "message": "Error message here",
         "data": {}
-    } ```
-
-  ````
+    }
+  ```
 
 - GET elocID
-- This will allow users to fetch eloc based on the location search, eloc will use in next API to fetch Lat and Long.
-- Endpoint: `{{HOST}}/api/partner/v2/get-partner-location-2-eloc/?place_query={:area}`
-
-  - Example: `https://redcliffhealth.com/api/partner/v2/get-partner-location-2-eloc/?place_query=Delhi`
-  - Response: (includes elocID)
-    ```json
-    {
-      ...other details,
-      "eloc": "1234567890"
-    }
-    ```
+  - This will allow users to fetch eloc based on the location search, eloc will use in next API to fetch Lat and Long.
+  - Endpoint: `{{HOST}}/api/partner/v2/get-partner-location-2-eloc/?place_query={:area}`
+  
+    - Example: `https://redcliffhealth.com/api/partner/v2/get-partner-location-2-eloc/?place_query=Delhi`
+    - Response: (includes elocID)
+      ```json
+      {
+        ...other details,
+        "eloc": "1234567890"
+      }
+      ```
 
 - GET Latitude and Longitude based on eloc
   - This API allows users to fetch latitude and longitude based on eloc.
@@ -136,14 +135,14 @@
     "latitude": "",
     "longitude": ""
     }
-- Error Response:
-  ```json
-  {
-    "status": "failure",
-    "message": "eloc is not valid",
-    "data": {}
-  }
-  ```
+  - Error Response:
+    ```json
+    {
+      "status": "failure",
+      "message": "eloc is not valid",
+      "data": {}
+    }
+    ```
 
 (Non essential Requirement: Setup contact with providers for the support from the MantraCare team for any issues related to the booking, payment, or test results. This will help in providing a better user experience and resolving any issues quickly.)
 
