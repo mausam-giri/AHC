@@ -1,0 +1,473 @@
+// Enhanced Pathology Lab Booking API Database Schema
+// Based on RedCliff API documentation and multi-provider architecture
+// Docs: https://dbml.dbdiagram.io/docs
+
+// ===========================================
+// CORE ENTITIES
+// ===========================================
+
+Table users {
+  id int [primary key, increment]
+  email varchar [unique, not null]
+  phone_number varchar [unique, not null]
+  name varchar [not null]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  is_active boolean [default: true]
+  
+  indexes {
+    (email)
+    (phone_number)
+  }
+}
+
+Table providers {
+  id int [primary key, increment]
+  name varchar [not null] // RedCliff, Healthians, Orange Health
+  host_url varchar [not null]
+  api_config JSON [not null] // Store API endpoints, credentials, etc.
+  is_active boolean [default: true]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  indexes {
+    (name)
+  }
+}
+
+Table packages {
+  id int [primary key, increment]
+  provider_id int [ref: > providers.id, not null]
+  provider_package_code varchar [not null] // e.g., "SE046F", "MD028"
+  name varchar [not null]
+  description text
+  package_price decimal(10,2) [not null]
+  offer_price decimal(10,2) [not null]
+  discount_amount decimal(10,2) [default: 0]
+  is_active boolean [default: true]
+  is_home_collection boolean [default: true]
+  is_ppmc_available boolean [default: false]
+  min_age int [null]
+  max_age int [null]
+  gender_restriction enum('male', 'female', 'any') [default: 'any']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  indexes {
+    (provider_id, provider_package_code)
+    (is_active)
+    (is_home_collection)
+  }
+}
+
+// ===========================================
+// LOCATION & SERVICEABILITY
+// ===========================================
+
+Table locations {
+  id int [primary key, increment]
+  eloc_id varchar [unique, not null] // Provider-specific location ID
+  provider_id int [ref: > providers.id, not null]
+  place_query varchar [not null] // Search query used
+  latitude decimal(10,8) [not null]
+  longitude decimal(10,8) [not null]
+  city varchar [not null]
+  state varchar [not null]
+  pincode varchar [not null]
+  is_serviceable boolean [default: true]
+  created_at timestamp [default: `now()`]
+  
+  indexes {
+    (provider_id, eloc_id)
+    (latitude, longitude)
+    (pincode)
+  }
+}
+
+Table collection_slots {
+  id int [primary key, increment]
+  provider_id int [ref: > providers.id, not null]
+  provider_slot_id int [not null] // Provider's slot ID
+  collection_date date [not null]
+  start_time time [not null]
+  end_time time [not null]
+  available_slots int [not null, default: 0]
+  total_slots int [not null, default: 0]
+  is_active boolean [default: true]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  indexes {
+    (provider_id, collection_date, provider_slot_id)
+    (collection_date, start_time)
+  }
+}
+
+// ===========================================
+// CUSTOMER & ADDRESS MANAGEMENT
+// ===========================================
+
+Table customers {
+  id int [primary key, increment]
+  user_id int [ref: > users.id, not null]
+  name varchar [not null]
+  age int [not null]
+  gender enum('male', 'female') [not null]
+  email varchar [not null]
+  phone_number varchar [not null]
+  alt_phone_number varchar [null]
+  whatsapp_number varchar [null]
+  aadhar_number varchar [null]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  indexes {
+    (user_id)
+    (phone_number)
+    (email)
+  }
+}
+
+Table customer_addresses {
+  id int [primary key, increment]
+  customer_id int [ref: > customers.id, not null]
+  address_line1 text [not null]
+  address_line2 text [null]
+  landmark text [null]
+  latitude decimal(10,8) [not null]
+  longitude decimal(10,8) [not null]
+  pincode varchar [not null]
+  city varchar [not null]
+  state varchar [not null]
+  is_default boolean [default: false]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  indexes {
+    (customer_id)
+    (latitude, longitude)
+    (pincode)
+  }
+}
+
+// ===========================================
+// BOOKING MANAGEMENT
+// ===========================================
+
+Table bookings {
+  id int [primary key, increment]
+  user_id int [ref: > users.id, not null]
+  provider_id int [ref: > providers.id, not null]
+  customer_id int [ref: > customers.id, not null]
+  address_id int [ref: > customer_addresses.id, not null]
+  
+  // Provider-specific booking details
+  provider_booking_id varchar [unique, not null] // Provider's booking ID
+  provider_slot_id int [not null]
+  
+  // Booking details
+  booking_date date [not null]
+  collection_date date [not null]
+  booking_type enum('homedx', 'ppmc') [default: 'homedx']
+  
+  // Payment details
+  total_amount decimal(10,2) [not null]
+  discounted_amount decimal(10,2) [not null]
+  final_amount decimal(10,2) [not null]
+  is_credit boolean [default: false]
+  payment_status enum('pending', 'completed', 'failed', 'refunded') [default: 'pending']
+  
+  // Booking status
+  booking_status enum('temporary', 'confirmed', 'cancelled', 'rescheduled', 'completed') [default: 'temporary']
+  is_fasting boolean [default: false]
+  is_ppbs_linked boolean [default: false]
+  
+  // Special requirements
+  is_ecg boolean [default: false]
+  is_mer boolean [default: false]
+  is_video_mer boolean [default: false]
+  
+  // Reference data
+  reference_data varchar [null]
+  client_refid varchar [null]
+  
+  // Timestamps
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  expires_at timestamp [null] // For temporary bookings (30 mins)
+  
+  indexes {
+    (user_id)
+    (provider_id, provider_booking_id)
+    (booking_status)
+    (collection_date)
+    (payment_status)
+  }
+}
+
+Table booking_packages {
+  id int [primary key, increment]
+  booking_id int [ref: > bookings.id, not null]
+  package_id int [ref: > packages.id, not null]
+  package_price decimal(10,2) [not null]
+  offer_price decimal(10,2) [not null]
+  discount_amount decimal(10,2) [default: 0]
+  is_addon boolean [default: false]
+  created_at timestamp [default: `now()`]
+  
+  indexes {
+    (booking_id)
+    (package_id)
+  }
+}
+
+Table addon_members {
+  id int [primary key, increment]
+  booking_id int [ref: > bookings.id, not null]
+  name varchar [not null]
+  age int [not null]
+  gender enum('male', 'female') [not null]
+  designation varchar [null] // Mr, Mrs, etc.
+  package_id int [ref: > packages.id, not null]
+  created_at timestamp [default: `now()`]
+  
+  indexes {
+    (booking_id)
+    (package_id)
+  }
+}
+
+// ===========================================
+// FASTING & PPBS LINKED BOOKINGS
+// ===========================================
+
+Table linked_bookings {
+  id int [primary key, increment]
+  parent_booking_id int [ref: > bookings.id, not null] // Fasting booking
+  child_booking_id int [ref: > bookings.id, not null] // PPBS booking
+  time_difference_hours int [not null] // Must be >= 2 hours
+  created_at timestamp [default: `now()`]
+  
+  indexes {
+    (parent_booking_id)
+    (child_booking_id)
+  }
+}
+
+// ===========================================
+// PHLEBOTOMIST & TRACKING
+// ===========================================
+
+Table phlebotomists {
+  id int [primary key, increment]
+  provider_id int [ref: > providers.id, not null]
+  provider_phlebo_id varchar [not null]
+  name varchar [not null]
+  phone_number varchar [null]
+  masked_phone_number varchar [null] // For privacy
+  gender enum('male', 'female') [null]
+  is_active boolean [default: true]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  indexes {
+    (provider_id, provider_phlebo_id)
+  }
+}
+
+Table phlebo_assignments {
+  id int [primary key, increment]
+  booking_id int [ref: > bookings.id, not null]
+  phlebotomist_id int [ref: > phlebotomists.id, not null]
+  assigned_at timestamp [default: `now()`]
+  status enum('assigned', 'arrived', 'completed', 'cancelled') [default: 'assigned']
+  notes text [null]
+  
+  indexes {
+    (booking_id)
+    (phlebotomist_id)
+    (status)
+  }
+}
+
+// ===========================================
+// REPORTS & RESULTS
+// ===========================================
+
+Table reports {
+  id int [primary key, increment]
+  booking_id int [ref: > bookings.id, unique, not null]
+  provider_report_id varchar [null] // Provider's report ID
+  status enum('pending', 'available', 'updated', 'completed') [default: 'pending']
+  report_url varchar [null]
+  download_link varchar [null]
+  digital_value text [null] // For tracking purposes
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  indexes {
+    (booking_id)
+    (status)
+  }
+}
+
+// ===========================================
+// WEBHOOKS & NOTIFICATIONS
+// ===========================================
+
+Table webhook_events {
+  id int [primary key, increment]
+  provider_id int [ref: > providers.id, not null]
+  booking_id int [ref: > bookings.id, not null]
+  event_type enum('booking_created', 'booking_updated', 'booking_cancelled', 'payment_initiated', 'payment_completed', 'phlebo_assigned', 'phlebo_arrived', 'phlebo_completed', 'results_available', 'results_updated', 'results_completed', 'results_download_ready') [not null]
+  payload JSON [not null]
+  processed boolean [default: false]
+  created_at timestamp [default: `now()`]
+  
+  indexes {
+    (provider_id, booking_id)
+    (event_type)
+    (processed)
+  }
+}
+
+// ===========================================
+// SUPPORT & TICKETS
+// ===========================================
+
+Table support_tickets {
+  id int [primary key, increment]
+  user_id int [ref: > users.id, not null]
+  booking_id int [ref: > bookings.id, null]
+  subject varchar [not null]
+  description text [not null]
+  priority enum('low', 'medium', 'high', 'urgent') [default: 'medium']
+  status enum('open', 'in_progress', 'resolved', 'closed') [default: 'open']
+  assigned_to varchar [null]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  indexes {
+    (user_id)
+    (booking_id)
+    (status)
+    (priority)
+  }
+}
+
+Table ticket_messages {
+  id int [primary key, increment]
+  ticket_id int [ref: > support_tickets.id, not null]
+  user_id int [ref: > users.id, null] // null for system messages
+  message text [not null]
+  is_system_message boolean [default: false]
+  created_at timestamp [default: `now()`]
+  
+  indexes {
+    (ticket_id)
+    (created_at)
+  }
+}
+
+// ===========================================
+// CACHE & PERFORMANCE TABLES
+// ===========================================
+
+Table package_location_cache {
+  id int [primary key, increment]
+  package_id int [ref: > packages.id, not null]
+  latitude decimal(10,8) [not null]
+  longitude decimal(10,8) [not null]
+  radius_km int [not null] // Serviceable radius
+  is_available boolean [default: true]
+  last_checked timestamp [default: `now()`]
+  
+  indexes {
+    (package_id, latitude, longitude)
+    (is_available)
+  }
+}
+
+Table user_locations {
+  id int [primary key, increment]
+  user_id int [ref: > users.id, not null]
+  latitude decimal(10,8) [not null]
+  longitude decimal(10,8) [not null]
+  ip_address varchar [null]
+  user_agent text [null]
+  created_at timestamp [default: `now()`]
+  
+  indexes {
+    (user_id)
+    (latitude, longitude)
+    (created_at)
+  }
+}
+
+// ===========================================
+// AUDIT & LOGGING
+// ===========================================
+
+Table audit_logs {
+  id int [primary key, increment]
+  user_id int [ref: > users.id, null]
+  action varchar [not null]
+  table_name varchar [not null]
+  record_id int [not null]
+  old_values JSON [null]
+  new_values JSON [null]
+  ip_address varchar [null]
+  user_agent text [null]
+  created_at timestamp [default: `now()`]
+  
+  indexes {
+    (user_id)
+    (action)
+    (table_name, record_id)
+    (created_at)
+  }
+}
+
+// ===========================================
+// REFERENTIAL INTEGRITY CONSTRAINTS
+// ===========================================
+
+// Ensure linked bookings have proper time difference
+Ref: linked_bookings.parent_booking_id > bookings.id
+Ref: linked_bookings.child_booking_id > bookings.id
+
+// Ensure booking packages reference valid packages
+Ref: booking_packages.booking_id > bookings.id
+Ref: booking_packages.package_id > packages.id
+
+// Ensure addon members reference valid bookings and packages
+Ref: addon_members.booking_id > bookings.id
+Ref: addon_members.package_id > packages.id
+
+// Ensure phlebo assignments reference valid bookings and phlebotomists
+Ref: phlebo_assignments.booking_id > bookings.id
+Ref: phlebo_assignments.phlebotomist_id > phlebotomists.id
+
+// Ensure reports reference valid bookings
+Ref: reports.booking_id > bookings.id
+
+// Ensure webhook events reference valid providers and bookings
+Ref: webhook_events.provider_id > providers.id
+Ref: webhook_events.booking_id > bookings.id
+
+// Ensure support tickets reference valid users and bookings
+Ref: support_tickets.user_id > users.id
+Ref: support_tickets.booking_id > bookings.id
+
+// Ensure ticket messages reference valid tickets and users
+Ref: ticket_messages.ticket_id > support_tickets.id
+Ref: ticket_messages.user_id > users.id
+
+// Ensure package location cache references valid packages
+Ref: package_location_cache.package_id > packages.id
+
+// Ensure user locations reference valid users
+Ref: user_locations.user_id > users.id
+
+// Ensure audit logs reference valid users
+Ref: audit_logs.user_id > users.id 

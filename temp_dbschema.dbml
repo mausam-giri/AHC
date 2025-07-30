@@ -1,0 +1,120 @@
+// Use DBML to define your database structure
+// Docs: https://dbml.dbdiagram.io/docs
+
+Table ahc_provider{
+  id        int [primary key]
+  name      varchar
+  type      enum('Patho Lab', 'Medicine')
+  endpoint  varchar
+  api_config JSON
+}
+
+Table ahc_lab_to_package {
+  ahc_provider_id int [ref: > ahc_provider.id]
+  provider_package_id int
+}
+
+Table ahc_customer {
+  id int [primary key]
+  user_id int 
+  name  varchar
+ 
+  age int
+  gender enum('male', 'female')
+ 
+  phone_number int [null]
+  email varchar
+  alt_phone_number int [null]
+  whatsapp_number int [null]
+  
+}
+
+Table ahc_customer_address {
+  id int [pk]
+  user_id int
+  address text
+  address_2 text
+  address_landmark text
+  latitude int [null]
+  longitude int [null]
+  pincode int [null]
+}
+
+Table ahc_patho_lab_booking {
+  id int [pk]
+  user_id int
+  provider_id int [ref: > ahc_provider.id]
+  address_id int [ref: > ahc_customer_address.id]
+  
+  package_id int
+
+  provider_booking_id int
+  provider_slot_id int
+  parent_booking_id int [null, ref:> ahc_patho_lab_booking.id]
+
+  payment_id int
+  payment_status varchar
+
+  booking_date timestamp
+  collection_date timestamp
+  total_amount int
+
+  is_fasting boolean
+  is_ppb_linked boolean
+
+  phalebotomist_id int [null]
+
+  created_at timestamp
+  updated_at timestamp 
+}
+
+Table ahc_patho_lab_booking_status {
+  id int [pk]
+  user_id int
+  booking_id int
+  booking_status enum('temporary', 'confirmed', 'cancelled', 'rescheduled')
+  is_completed boolean [default: false]
+}
+
+Table ahc_add_on_member {
+  id int [pk]
+  booking_id int [ref: > ahc_patho_lab_booking.id]
+  name varchar
+  age int
+  gender enum("male", "female")
+  package_id int
+  ahc_customer_id int [ref: > ahc_customer.id]
+}
+
+Table ahc_patho_lab_report {
+  id int [pk]
+  booking_id int [unique, ref: > ahc_patho_lab_booking.id]
+  report_url varchar [null]
+  user_id int
+  status enum('pending', 'available', 'updated', 'completed')
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table collecction_slots {
+  slot_id int [pk]
+  provider_id int [ref:> ahc_provider.id]
+  collection_date timestamp
+  start_time time
+  end_time time
+  available_slots int
+
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table phlebotomists {
+  phlebotomist_id int [pk]
+  provider_id int [ref:> ahc_provider.id]
+  name varchar
+  phone_number int [null]
+  masked_phone_number int [null]
+
+  created_at timestamp
+  updated_at timestamp
+}
